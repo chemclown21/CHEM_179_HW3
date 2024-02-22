@@ -1,0 +1,3 @@
+/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/cmake-build-debug/CMakeFiles/CHEM_179_HW3.dir
+/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/cmake-build-debug/CMakeFiles/rebuild_cache.dir
