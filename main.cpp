@@ -101,7 +101,7 @@ double NormConst(double X, double Y, double Z, double alpha_k, double l, double 
 
 // Question floating point or double? loss of info?
 // Find constants for a given basis function
-tuple<vec,vec,vec,vec,vec> FindConsts(string atom, vec R_center,string orbital){
+tuple<vec,vec,vec,vec,vec> FindConsts(int atom, vec R_center,string orbital){
     // Exponent Data
     const vec H_alpha_1s = vec({3.42525091,0.62391373,0.16885540});
     const vec C_alpha_2s_2p = vec({2.94124940,0.68348310,0.22228990});
@@ -119,11 +119,11 @@ tuple<vec,vec,vec,vec,vec> FindConsts(string atom, vec R_center,string orbital){
     vec exponents;
     vec contraCoeffs;
     vec quantNums;
-    if (atom == "H"){
+    if (atom == 1){
         exponents    = H_alpha_1s;
         contraCoeffs = H_d_1s;
         quantNums    = lms_s;
-    } else if (atom == "C"){
+    } else if (atom == 6){
         if        (orbital == "2s" ){
             exponents    = C_alpha_2s_2p ;
             contraCoeffs = C_d_2s;
@@ -207,25 +207,25 @@ double omega_mu(vec r_input,tuple<vec,vec,vec,vec,vec> constants){
     return omega_mu_r;
 }
 
-double diag_h_select(string atom, string orbital){
+double diag_h_select(int atom, string orbital){
     const double h_H    = -13.6; // eV, H
     const double h_C_2s = -21.4; // eV, C 2s
     const double h_C_2p = -11.4; // eV, C 2p
 
-    if (atom == "H"){
+    if (atom == 1){
         return h_H;
-    } else if (atom == "C" && orbital == "2s"){
+    } else if (atom == 6 && orbital == "2s"){
         return h_C_2s;
-    } else if (atom == "C" && (orbital == "2px" || orbital == "2py" || orbital == "2pz")){
+    } else if (atom == 6 && (orbital == "2px" || orbital == "2py" || orbital == "2pz")){
         return h_C_2p;
     }
-
 }
+
 int main() {
-    string file_name = "/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/test_cases/H2.txt";
+    string file_name = "/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/test_cases/og.txt";
     auto [numWords,numLines] = count_words(file_name);
     // Count number of words in file to determine which question to do.
-    // Do question 1
+    // Question 1
 
     // Read in the coordinates, in the format: E X Y Z for each atom, where E is the element (handle at least H and C).
 
@@ -238,30 +238,32 @@ int main() {
     }
 
     // Initialize vars
-    int num_atoms = numLines;
+    int num_atoms;          // Initialize total number of atoms = n
+    int charge;
+    inputFile >> num_atoms >> charge; // Set total number of atoms = n
     const double Bohr_A = 0.52917706; // angstroms in 1 bohr
     int a = 0; // Number carbons
     int b = 0;
     vector<vector<double>> xyz_list;       // Initialize list for atoms' xyz coordinates
-    vector<string> atom_list;              // Initialize list for atoms' identities
+    vector<int> atom_list;              // Initialize list for atoms' identities
     vector<vector<double>> basis_xyz_list;       // Initialize list for atoms' xyz coordinates
-    vector<string> basis_atom_list;              // Initialize list for atoms' identities
+    vector<int> basis_atom_list;              // Initialize list for atoms' identities
 
     // Read in atom identity and xyz coordinates
     for (int i = 0; i < num_atoms; ++i) {          // Iterate through every atom
-        string atom;
+        int atom;
         double x, y, z;                    // Initialize atom identity and xyz coordinates
         inputFile >> atom >> x >> y >> z ; // Set atomic number/atom identity and xyz coordinates
         x = x/Bohr_A;
         y = y/Bohr_A;
         z = z/Bohr_A;
-        if (atom != "C" && atom != "H") {                  // If a given atom is not gold, throw an error
+        if (atom != 6 && atom != 1) {                  // If a given atom is not gold, throw an error
             cerr << "Atom No." << i+1 << ": This atom is not a carbon or hydrogen!" << endl;
-        } else if (atom == "C"){
+        } else if (atom == 6){
             a = a + 1;
-            basis_atom_list.insert(basis_atom_list.end(), {"C","C","C","C"});
+            basis_atom_list.insert(basis_atom_list.end(), {6,6,6,6});
             basis_xyz_list.insert(basis_xyz_list.end(), { {x, y, z},{x, y, z},{x, y, z},{x, y, z} });
-        } else if (atom == "H"){
+        } else if (atom == 1){
             b = b + 1;
             basis_atom_list.push_back(atom);
             basis_xyz_list.push_back({x, y, z});
@@ -294,13 +296,13 @@ int main() {
 
     for (int i = 0; i < N; i++){
 
-        string atom = basis_atom_list[i];
+        int atom = basis_atom_list[i];
         vector<double> center = basis_xyz_list[i];
 
         string orbital;
-        if (atom == "H"){
+        if (atom == 1){
             orbital = "1s";
-        } else if (atom == "C"){
+        } else if (atom == 6){
             orbital = C_orbital_bank[0];
             C_orbital_bank.erase(C_orbital_bank.begin());
         }
@@ -337,9 +339,6 @@ int main() {
             // R_center,quantNums,exponents,contraCoeffs,normConsts
             auto[R_mu,lmn_mu,a_mu,d_mu,N_mu] = basis_func_constants[mu];
             auto[R_nu,lmn_nu,a_nu,d_nu,N_nu] = basis_func_constants[nu];
-
-            d_mu.print("d_mu");
-            d_nu.print("d_nu");
 
             int K = d_mu.size();
             int L = d_nu.size();
@@ -383,7 +382,7 @@ int main() {
         }
     }
 
-    S.print("Contracted overlap integral S");
+    //S.print("Contracted overlap integral S");
 
     // Question 3
 
@@ -406,7 +405,58 @@ int main() {
         }
     }
 
-    H.print("Hamiltonian!");
+    //H.print("Hamiltonian!");
 
     // Solve the generalized eigenvalue problem to obtain the molecular orbital coefficients, C and the eigenvalues ε.
+
+    // Make the orthogonalization transformation
+
+    S = mat("1 0.004 0 0 -0.06; 0.004 1 0 0 0; 0 0 1 0 0; 0 0 0 1 0; -0.06 0 0 0 1");
+    H = mat("-13.6 -0.19 0 0 1.66; -0.19 -40 0 0 0; 0 0 -18 0 0; 0 0 0 -18 0; 1.66 0 0 0 -18");
+    N = S.n_cols;
+
+
+    vec eigval; // main diagonal of D matrix
+    mat eigvec; // U matrix
+    eig_sym(eigval, eigvec, S,"dc");
+
+    mat U = eigvec;
+    mat s = diagmat(eigval);
+
+    mat s_inv_sq(N,N,fill::zeros);
+
+    for (int mu = 0; mu < N; mu++){
+        for (int nu = 0; nu < N; nu++){
+            if (s(mu,nu) == 0){
+                s_inv_sq(mu,nu) = 0;
+            } else {
+                s_inv_sq(mu,nu) = 1/sqrt(s(mu,nu));
+            }
+        }
+    }
+    mat X = U.t()*s_inv_sq*U;
+
+    // Form the hamiltonian in the orthogonalized basis: H = XT HX
+    mat orth_H = X.t()*H*X;
+
+    vec e; // main diagonal of D matrix
+    mat V; // U matrix
+    eig_sym(e, V, orth_H,"dc");
+    mat E = diagmat(e);
+
+    mat C = X*V;
+
+    S.print("S");
+    eigvec.print("eigenvec");
+    eigval.print("eigenval");
+    U.print("U");
+    s.print("s");
+    s_inv_sq.print("s^-1/2");
+    X.print("X");
+    orth_H.print("Fancy H");
+    E.print("E");
+    C.print("C");
+
+
+    //Solve for eigenvals/vecs of S with Armadillo:
 }
