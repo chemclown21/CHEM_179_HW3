@@ -221,8 +221,24 @@ double diag_h_select(int atom, string orbital){
     }
 }
 
+mat s_inv_sqrt(int N, mat s){
+    mat s_inv_sq(N,N,fill::zeros);
+
+    for (int mu = 0; mu < N; mu++){
+        for (int nu = 0; nu < N; nu++){
+            if (s(mu,nu) == 0){
+                s_inv_sq(mu,nu) = 0;
+            } else {
+                s_inv_sq(mu,nu) = 1/sqrt(s(mu,nu));
+            }
+        }
+    }
+    return s_inv_sq;
+}
+
 int main() {
-    string file_name = "/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/test_cases/og.txt";
+
+    string file_name = "/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/sample_input/C2H2.txt";
     auto [numWords,numLines] = count_words(file_name);
     // Count number of words in file to determine which question to do.
     // Question 1
@@ -254,9 +270,9 @@ int main() {
         int atom;
         double x, y, z;                    // Initialize atom identity and xyz coordinates
         inputFile >> atom >> x >> y >> z ; // Set atomic number/atom identity and xyz coordinates
-        x = x/Bohr_A;
-        y = y/Bohr_A;
-        z = z/Bohr_A;
+        //x = x/Bohr_A;
+        //y = y/Bohr_A;
+        //z = z/Bohr_A;
         if (atom != 6 && atom != 1) {                  // If a given atom is not gold, throw an error
             cerr << "Atom No." << i+1 << ": This atom is not a carbon or hydrogen!" << endl;
         } else if (atom == 6){
@@ -273,6 +289,7 @@ int main() {
         xyz_list.push_back({x, y, z});     // Append this atom's xyz coordinates to list
     }
     inputFile.close();                     // Close the txt file
+
 
     // Evaluate the number of basis functions, N from the molecular formula, Ca Hb , where
     // the relation is N = 4a + b. Your matrices, such as S, H, X, etc, will be N × N , so this will
@@ -310,7 +327,6 @@ int main() {
             C_orbital_bank = {"2s","2px","2py","2pz"};
         }
         basis_orbital_list.push_back(orbital);
-
         //auto[exponents,contraCoeffs,quantNums,R_center,normConsts] = FindConsts(atom, center, orbital);
         basis_func_constants.push_back(FindConsts(atom, center, orbital));
     }
@@ -327,7 +343,6 @@ int main() {
         // and save them in an array.
         All_Normalization_Constants.col(i) = normConsts;
     }
-
 
     // Contracted overlap integral S
     mat S(N,N,fill::zeros);
@@ -382,7 +397,8 @@ int main() {
         }
     }
 
-    //S.print("Contracted overlap integral S");
+    S.print("S: Contracted overlap integral, overlap matrix:");
+
 
     // Question 3
 
@@ -405,58 +421,62 @@ int main() {
         }
     }
 
-    //H.print("Hamiltonian!");
+    H.print("H: Hamiltonian matrix");
 
     // Solve the generalized eigenvalue problem to obtain the molecular orbital coefficients, C and the eigenvalues ε.
 
     // Make the orthogonalization transformation
 
-    S = mat("1 0.004 0 0 -0.06; 0.004 1 0 0 0; 0 0 1 0 0; 0 0 0 1 0; -0.06 0 0 0 1");
-    H = mat("-13.6 -0.19 0 0 1.66; -0.19 -40 0 0 0; 0 0 -18 0 0; 0 0 0 -18 0; 1.66 0 0 0 -18");
-    N = S.n_cols;
+    mat X;
+    vec s_vec;
+    mat U;
 
+    eig_sym(s_vec, U, S);
+    s_vec.print("Evals:");
+    U.print("Evecs:");
 
-    vec eigval; // main diagonal of D matrix
-    mat eigvec; // U matrix
-    eig_sym(eigval, eigvec, S,"dc");
+    mat inv_sqrt_s = arma::inv(arma::diagmat(arma::sqrt(s_vec)));
 
-    mat U = eigvec;
-    mat s = diagmat(eigval);
+    inv_sqrt_s.print("Inverse square root of eigenvalues of S:");
 
-    mat s_inv_sq(N,N,fill::zeros);
+    X = U * inv_sqrt_s * U.t();
 
-    for (int mu = 0; mu < N; mu++){
-        for (int nu = 0; nu < N; nu++){
-            if (s(mu,nu) == 0){
-                s_inv_sq(mu,nu) = 0;
-            } else {
-                s_inv_sq(mu,nu) = 1/sqrt(s(mu,nu));
-            }
-        }
-    }
-    mat X = U.t()*s_inv_sq*U;
+    X.print("X_mat: Inverse square root of S:");
+    X.save("X_mat_output.txt", raw_ascii);
+    S.save("S_mat_output.txt", raw_ascii);
 
     // Form the hamiltonian in the orthogonalized basis: H = XT HX
-    mat orth_H = X.t()*H*X;
+    mat orth_H = X*H*X;
 
-    vec e; // main diagonal of D matrix
-    mat V; // U matrix
-    eig_sym(e, V, orth_H,"dc");
-    mat E = diagmat(e);
+    if (orth_H.is_symmetric()){
+        vec e; // main diagonal of D matrix
+        mat V; // U matrix
+        eig_sym(e, V, orth_H);
+        mat E_mat = diagmat(e);
+        E_mat.print("E");
+        mat C = X*V;
+        C.print("C: MO coefficients (C matrix)");
 
-    mat C = X*V;
+        double E = 0; // Initialize energy
+        for (int i = 0; i < n; i++){
+            E += 2*e(i);
+        }
+        cout << "The molecule in file " << file_name << " has energy " << E;
+    } else {
+        cx_vec e; // main diagonal of D matrix
+        cx_mat V; // U matrix
+        eig_gen(e, V, orth_H,"balanced");
+        cx_mat E_mat = diagmat(e);
+        E_mat.print("E");
+        cx_mat C = X*V;
+        C.print("C: MO coefficients (C matrix)");
 
-    S.print("S");
-    eigvec.print("eigenvec");
-    eigval.print("eigenval");
-    U.print("U");
-    s.print("s");
-    s_inv_sq.print("s^-1/2");
-    X.print("X");
-    orth_H.print("Fancy H");
-    E.print("E");
-    C.print("C");
-
-
+        cx_double E = 0; // Initialize energy
+        for (int i = 0; i < n; i++){
+            E += cx_double(2)*e(i);
+        }
+        cout << "The molecule in file " << file_name << " has energy " << E;
+    }
     //Solve for eigenvals/vecs of S with Armadillo:
+
 }

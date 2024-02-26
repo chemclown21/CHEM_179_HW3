@@ -1,0 +1,1 @@
+The molecule in file /Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/sample_input/C2H2.txt has energy (61.6543,0)
