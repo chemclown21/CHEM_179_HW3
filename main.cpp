@@ -11,32 +11,10 @@
 using namespace std;
 using namespace arma;
 
-// Count words in input file to know which question algorithm to run
-tuple<int,int> count_words(string file_name){
-    ifstream inFile;
-    inFile.open(file_name);
-
-    string line;
-    int numWords = 0;
-    int numLines = 0;
-
-    while(getline(inFile, line)){
-        stringstream lineStream(line);
-        while(getline(lineStream, line, ' ')){
-            numWords++;
-        }
-        numLines++;
-    }
-
-    inFile.close();
-    return make_tuple(numWords,numLines);
-}
-
 // Check if a number is an integer
 bool is_integer(double k){
     return floor(k) == k;
 }
-
 
 // Gaussian G(X) centered at X
 double G(double x, double X, double alpha, double l){
@@ -168,45 +146,6 @@ tuple<vec,vec,vec,vec,vec> FindConsts(int atom, vec R_center,string orbital){
     return make_tuple(R_center,quantNums,exponents,contraCoeffs,normConsts);
 }
 
-// Not used, functional omega_mu calculation
-double omega_mu(vec r_input,tuple<vec,vec,vec,vec,vec> constants){
-    auto [R_center,quantNums,exponents,contraCoeffs,normConsts] = constants;
-
-    double x = r_input(0);
-    double y = r_input(1);
-    double z = r_input(2);
-
-    double X = R_center(0);
-    double Y = R_center(1);
-    double Z = R_center(2);
-
-    double l = quantNums(0);
-    double m = quantNums(1);
-    double n = quantNums(2);
-
-    // contracted function
-    double omega_mu_r = 0;
-
-    int K = contraCoeffs.size();
-    for (int k = 0; k < K; k++){
-        double d_k_mu  = contraCoeffs(k);
-        double alpha_k = exponents(k);
-        double N_k_lmn = normConsts(k); // normalization constants
-
-        double omega_k_r;
-        double Gx = G(x,X,alpha_k,l);
-        double Gy = G(y,Y,alpha_k,m);
-        double Gz = G(z,Z,alpha_k,n);
-
-        // The coefficients, dkμ, mix together the primitive gaussian functions given by ...
-        omega_k_r = N_k_lmn * Gx * Gy * Gz;
-
-        // contracted function as a linear combination of primitive gaussian functions
-        omega_mu_r += d_k_mu * omega_k_r;
-    }
-    return omega_mu_r;
-}
-
 double diag_h_select(int atom, string orbital){
     const double h_H    = -13.6; // eV, H
     const double h_C_2s = -21.4; // eV, C 2s
@@ -221,26 +160,10 @@ double diag_h_select(int atom, string orbital){
     }
 }
 
-mat s_inv_sqrt(int N, mat s){
-    mat s_inv_sq(N,N,fill::zeros);
-
-    for (int mu = 0; mu < N; mu++){
-        for (int nu = 0; nu < N; nu++){
-            if (s(mu,nu) == 0){
-                s_inv_sq(mu,nu) = 0;
-            } else {
-                s_inv_sq(mu,nu) = 1/sqrt(s(mu,nu));
-            }
-        }
-    }
-    return s_inv_sq;
-}
-
 int main() {
 
     string file_name = "/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/sample_input/C2H2.txt";
-    auto [numWords,numLines] = count_words(file_name);
-    // Count number of words in file to determine which question to do.
+
     // Question 1
 
     // Read in the coordinates, in the format: E X Y Z for each atom, where E is the element (handle at least H and C).
@@ -327,7 +250,6 @@ int main() {
             C_orbital_bank = {"2s","2px","2py","2pz"};
         }
         basis_orbital_list.push_back(orbital);
-        //auto[exponents,contraCoeffs,quantNums,R_center,normConsts] = FindConsts(atom, center, orbital);
         basis_func_constants.push_back(FindConsts(atom, center, orbital));
     }
 
