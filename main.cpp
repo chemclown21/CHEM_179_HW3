@@ -16,11 +16,6 @@ bool is_integer(double k){
     return floor(k) == k;
 }
 
-// Gaussian G(X) centered at X
-double G(double x, double X, double alpha, double l){
-    return pow(x-X,l)*exp(-alpha*pow(x-X,2));
-}
-
 // Factorial function
 int factorial(int n){
     int res = 1,i;
@@ -77,7 +72,6 @@ double NormConst(double X, double Y, double Z, double alpha_k, double l, double 
     return N_k_lmn;
 }
 
-// Question floating point or double? loss of info?
 // Find constants for a given basis function
 tuple<vec,vec,vec,vec,vec> FindConsts(int atom, vec R_center,string orbital){
     // Exponent Data
@@ -162,10 +156,9 @@ double diag_h_select(int atom, string orbital){
 
 int main() {
 
-    string file_name = "/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/sample_input/C2H2.txt";
+    string file_name = "/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/sample_input/H2.txt";
 
     // Question 1
-
     // Read in the coordinates, in the format: E X Y Z for each atom, where E is the element (handle at least H and C).
 
     // Read in input file
@@ -177,9 +170,9 @@ int main() {
     }
 
     // Initialize vars
-    int num_atoms;          // Initialize total number of atoms = n
+    int num_atoms;          // Initialize total number of atoms
     int charge;
-    inputFile >> num_atoms >> charge; // Set total number of atoms = n
+    inputFile >> num_atoms >> charge; // Set total number of atoms
     const double Bohr_A = 0.52917706; // angstroms in 1 bohr
     int a = 0; // Number carbons
     int b = 0;
@@ -331,9 +324,13 @@ int main() {
     for (int mu = 0; mu < N; mu++) {
         for (int nu = 0; nu < N; nu++) {
             if (mu == nu){ // The diagonal elements
+                // assigned values corresponding to the energy needed to remove an electron from
+                // that orbital of the corresponding atom.
                 H(mu,nu) = diag_h_select(basis_atom_list[mu],basis_orbital_list[mu]);
 
-            } else { //
+            } else { // the off-diagonal elements of the Huckel hamiltonian matrix
+                // given in terms of the average of the corresponding diagonals multiplied
+                // by the same element of the overlap matrix
                 double h_mu_nu;
                 double h_mu_mu = diag_h_select(basis_atom_list[mu],basis_orbital_list[mu]);
                 double h_nu_nu = diag_h_select(basis_atom_list[nu],basis_orbital_list[nu]);
@@ -347,19 +344,14 @@ int main() {
 
     // Solve the generalized eigenvalue problem to obtain the molecular orbital coefficients, C and the eigenvalues ε.
 
-    // Make the orthogonalization transformation
-
+    // Make the orthogonalization transformation X=S^-1/2
     mat X;
     vec s_vec;
     mat U;
 
     eig_sym(s_vec, U, S);
-    s_vec.print("Evals:");
-    U.print("Evecs:");
 
     mat inv_sqrt_s = arma::inv(arma::diagmat(arma::sqrt(s_vec)));
-
-    inv_sqrt_s.print("Inverse square root of eigenvalues of S:");
 
     X = U * inv_sqrt_s * U.t();
 
@@ -367,38 +359,26 @@ int main() {
     X.save("X_mat_output.txt", raw_ascii);
     S.save("S_mat_output.txt", raw_ascii);
 
-    // Form the hamiltonian in the orthogonalized basis: H = XT HX
+
+    // Form the hamiltonian in the orthogonalized basis: H = XT H X
     mat orth_H = X*H*X;
 
-    if (orth_H.is_symmetric()){
-        vec e; // main diagonal of D matrix
-        mat V; // U matrix
-        eig_sym(e, V, orth_H);
-        mat E_mat = diagmat(e);
-        E_mat.print("E");
-        mat C = X*V;
-        C.print("C: MO coefficients (C matrix)");
+    // Diagonalize orth_H V = V e
+    vec e;
+    mat V;
+    eig_sym(e, V, orth_H);
+    mat E_mat = diagmat(e);
 
-        double E = 0; // Initialize energy
-        for (int i = 0; i < n; i++){
-            E += 2*e(i);
-        }
-        cout << "The molecule in file " << file_name << " has energy " << E;
-    } else {
-        cx_vec e; // main diagonal of D matrix
-        cx_mat V; // U matrix
-        eig_gen(e, V, orth_H,"balanced");
-        cx_mat E_mat = diagmat(e);
-        E_mat.print("E");
-        cx_mat C = X*V;
-        C.print("C: MO coefficients (C matrix)");
+    // Form the MO coefficients
+    mat C = X*V;
+    C.print("C: MO coefficients (C matrix)");
 
-        cx_double E = 0; // Initialize energy
-        for (int i = 0; i < n; i++){
-            E += cx_double(2)*e(i);
-        }
-        cout << "The molecule in file " << file_name << " has energy " << E;
+    // Assemble the total energy
+    double E = 0; // Initialize energy
+    for (int i = 0; i < n; i++){ // based on the occupying the lowest n MOs
+        E += 2*e(i); // for a system of 2n valence electrons
     }
-    //Solve for eigenvals/vecs of S with Armadillo:
+    cout << "The molecule in file " << file_name << " has energy " << E << " eV";
+
 
 }
