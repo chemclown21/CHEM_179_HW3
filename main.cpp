@@ -72,15 +72,46 @@ double NormConst(double X, double Y, double Z, double alpha_k, double l, double 
     return N_k_lmn;
 }
 
+// Process basis data
+vector<vec> ProcessBasisData(string H_STO3G, string C_STO3G){
+    double H_alpha_1s_1,H_alpha_1s_2,H_alpha_1s_3;
+    double H_d_1s_1,H_d_1s_2,H_d_1s_3;
+
+    double C_alpha_2s_2p_1,C_alpha_2s_2p_2,C_alpha_2s_2p_3;
+    double C_d_2s_1,C_d_2s_2,C_d_2s_3;
+    double C_d_2p_1,C_d_2p_2,C_d_2p_3;
+
+    ifstream inputFile(H_STO3G);
+    inputFile >> H_alpha_1s_1     >> H_d_1s_1;
+    inputFile >> H_alpha_1s_2     >> H_d_1s_2;
+    inputFile >> H_alpha_1s_3     >> H_d_1s_3;
+    inputFile.close();
+    ifstream inputFile1(C_STO3G);
+    inputFile1 >> C_alpha_2s_2p_1 >> C_d_2s_1 >> C_d_2p_1;
+    inputFile1 >> C_alpha_2s_2p_2 >> C_d_2s_2 >> C_d_2p_2;
+    inputFile1 >> C_alpha_2s_2p_3 >> C_d_2s_3 >> C_d_2p_3;
+    inputFile1.close();
+
+    vector<vec> data;
+    data.push_back(vec{H_alpha_1s_1,H_alpha_1s_2,H_alpha_1s_3});
+    data.push_back(vec{H_d_1s_1,H_d_1s_2,H_d_1s_3});
+
+    data.push_back(vec{C_alpha_2s_2p_1,C_alpha_2s_2p_2,C_alpha_2s_2p_3});
+    data.push_back(vec{C_d_2s_1,C_d_2s_2,C_d_2s_3});
+    data.push_back(vec{C_d_2p_1,C_d_2p_2,C_d_2p_3});
+    return data;
+}
+
 // Find constants for a given basis function
-tuple<vec,vec,vec,vec,vec> FindConsts(int atom, vec R_center,string orbital){
+tuple<vec,vec,vec,vec,vec> FindConsts(vector<vec> HC_basis_data, int atom, vec R_center,string orbital){
+
     // Exponent Data
-    const vec H_alpha_1s = vec({3.42525091,0.62391373,0.16885540});
-    const vec C_alpha_2s_2p = vec({2.94124940,0.68348310,0.22228990});
+    const vec H_alpha_1s    = HC_basis_data[0];
+    const vec C_alpha_2s_2p = HC_basis_data[2];
     // Contraction Coefficient Data
-    const vec H_d_1s = vec({0.15432897,0.53532814,0.44463454});
-    const vec C_d_2s = vec({-0.09996723,0.39951283,0.70011547});
-    const vec C_d_2p = vec({0.15591627,0.60768372,0.39195739});
+    const vec H_d_1s = HC_basis_data[1];
+    const vec C_d_2s = HC_basis_data[3];
+    const vec C_d_2p = HC_basis_data[4];
     // Quantum Numbers
     const vec lms_s = vec({0,0,0});
     const vec lms_px = vec({1,0,0});
@@ -154,9 +185,18 @@ double diag_h_select(int atom, string orbital){
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
 
-    string file_name = "/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/sample_input/H2.txt";
+    // Program inputs
+    if (argc !=2)
+    {
+        printf("Usage: hw3 <filename>, for example hw3 example.txt\n");
+        return EXIT_FAILURE;
+    }
+    string file_name = argv[1];
+
+    string H_path_name = "/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/basis/H_STO3G.txt";
+    string C_path_name = "/Users/vittor/Documents/CLASSES/SPRING 2024/CHEM_179_HW3/basis/C_STO3G.txt";
 
     // Question 1
     // Read in the coordinates, in the format: E X Y Z for each atom, where E is the element (handle at least H and C).
@@ -167,6 +207,7 @@ int main() {
     // Throw error if file was not opened correctly
     if (!inputFile) {
         cerr << "Error opening file." << endl;
+        return EXIT_FAILURE;
     }
 
     // Initialize vars
@@ -226,6 +267,7 @@ int main() {
     vector<string> C_orbital_bank = {"2s","2px","2py","2pz"};
     vector<tuple<vec,vec,vec,vec,vec>> basis_func_constants;
     vector<string> basis_orbital_list;
+    vector<vec> basis_data = ProcessBasisData(H_path_name,C_path_name);
 
     for (int i = 0; i < N; i++){
 
@@ -243,7 +285,7 @@ int main() {
             C_orbital_bank = {"2s","2px","2py","2pz"};
         }
         basis_orbital_list.push_back(orbital);
-        basis_func_constants.push_back(FindConsts(atom, center, orbital));
+        basis_func_constants.push_back(FindConsts(basis_data,atom, center, orbital));
     }
 
     // Question 2
@@ -356,9 +398,6 @@ int main() {
     X = U * inv_sqrt_s * U.t();
 
     X.print("X_mat: Inverse square root of S:");
-    X.save("X_mat_output.txt", raw_ascii);
-    S.save("S_mat_output.txt", raw_ascii);
-
 
     // Form the hamiltonian in the orthogonalized basis: H = XT H X
     mat orth_H = X*H*X;
@@ -379,6 +418,4 @@ int main() {
         E += 2*e(i); // for a system of 2n valence electrons
     }
     cout << "The molecule in file " << file_name << " has energy " << E << " eV";
-
-
 }
