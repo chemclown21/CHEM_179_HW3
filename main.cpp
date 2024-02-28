@@ -34,12 +34,12 @@ int dfact(int n){
     return res;
 }
 
-// Bionomial Coefficient Example: m choose n
+// Binomial Coefficient Example: m choose n
 int binomCoeff(int m, int n){
     return factorial(m)/(factorial(n)*factorial(m-n));
 }
 
-// Calculation one of three directional components for SAB
+// Calculation one of three directional components for SAB (overlap integral of prod of 2 gauss)
 double SxABComp(double XA, double XB, double alpha, double beta, double lA, double lB){
 
     double P  = exp(-alpha*beta*pow(XA-XB,2)/(alpha + beta)); // Calculate prefactor
@@ -62,7 +62,7 @@ double SxABComp(double XA, double XB, double alpha, double beta, double lA, doub
 
 // Find normalization constant for a given k primitive gauss
 double NormConst(double X, double Y, double Z, double alpha_k, double l, double m, double n){
-    double SAA = 1; // Initialize SAB product
+    double SAA = 1; // Initialize SAA product
     SAA *= SxABComp(X,X,alpha_k,alpha_k,l,l); // Compute SxAA
     SAA *= SxABComp(Y,Y,alpha_k,alpha_k,m,m); // Compute SyAA
     SAA *= SxABComp(Z,Z,alpha_k,alpha_k,n,n); // Compute SzAA
@@ -72,7 +72,7 @@ double NormConst(double X, double Y, double Z, double alpha_k, double l, double 
     return N_k_lmn;
 }
 
-// Process basis data
+// Process basis data from basis files
 vector<vec> ProcessBasisData(string H_STO3G, string C_STO3G){
     double H_alpha_1s_1,H_alpha_1s_2,H_alpha_1s_3;
     double H_d_1s_1,H_d_1s_2,H_d_1s_3;
@@ -102,7 +102,7 @@ vector<vec> ProcessBasisData(string H_STO3G, string C_STO3G){
     return data;
 }
 
-// Find constants for a given basis function
+// Select exp, contraction, quantum num, and coord constants for a given basis function
 tuple<vec,vec,vec,vec,vec> FindConsts(vector<vec> HC_basis_data, int atom, vec R_center,string orbital){
 
     // Exponent Data
@@ -171,6 +171,7 @@ tuple<vec,vec,vec,vec,vec> FindConsts(vector<vec> HC_basis_data, int atom, vec R
     return make_tuple(R_center,quantNums,exponents,contraCoeffs,normConsts);
 }
 
+// Select diagonal hamiltonian h value for a given basis function
 double diag_h_select(int atom, string orbital){
     const double h_H    = -13.6; // eV, H
     const double h_C_2s = -21.4; // eV, C 2s
@@ -213,24 +214,24 @@ int main(int argc, char* argv[]) {
     // Initialize vars
     int num_atoms;          // Initialize total number of atoms
     int charge;
-    inputFile >> num_atoms >> charge; // Set total number of atoms
+    inputFile >> num_atoms >> charge; // Set total number of atoms and charge
     const double Bohr_A = 0.52917706; // angstroms in 1 bohr
     int a = 0; // Number carbons
     int b = 0;
     vector<vector<double>> xyz_list;       // Initialize list for atoms' xyz coordinates
-    vector<int> atom_list;              // Initialize list for atoms' identities
-    vector<vector<double>> basis_xyz_list;       // Initialize list for atoms' xyz coordinates
-    vector<int> basis_atom_list;              // Initialize list for atoms' identities
+    vector<int> atom_list;                 // Initialize list for atoms' identities
+    vector<vector<double>> basis_xyz_list; // Initialize list for atoms' xyz coordinates
+    vector<int> basis_atom_list;           // Initialize list for atoms' identities
 
     // Read in atom identity and xyz coordinates
-    for (int i = 0; i < num_atoms; ++i) {          // Iterate through every atom
+    for (int i = 0; i < num_atoms; ++i) {  // Iterate through every atom
         int atom;
         double x, y, z;                    // Initialize atom identity and xyz coordinates
         inputFile >> atom >> x >> y >> z ; // Set atomic number/atom identity and xyz coordinates
         //x = x/Bohr_A;
         //y = y/Bohr_A;
         //z = z/Bohr_A;
-        if (atom != 6 && atom != 1) {                  // If a given atom is not gold, throw an error
+        if (atom != 6 && atom != 1) {      // If a given atom is not H or C, throw an error
             cerr << "Atom No." << i+1 << ": This atom is not a carbon or hydrogen!" << endl;
         } else if (atom == 6){
             a = a + 1;
@@ -271,27 +272,27 @@ int main(int argc, char* argv[]) {
 
     for (int i = 0; i < N; i++){
 
-        int atom = basis_atom_list[i];
-        vector<double> center = basis_xyz_list[i];
+        int atom = basis_atom_list[i]; // select atom
+        vector<double> center = basis_xyz_list[i]; // find coordinates
 
         string orbital;
         if (atom == 1){
-            orbital = "1s";
-        } else if (atom == 6){
+            orbital = "1s"; // If it's H, only 1s orbital
+        } else if (atom == 6){ // If it's C, for each C, there's 2s, 2px, 2py, and 2pz
             orbital = C_orbital_bank[0];
             C_orbital_bank.erase(C_orbital_bank.begin());
         }
         if (C_orbital_bank.size() == 0){
             C_orbital_bank = {"2s","2px","2py","2pz"};
         }
-        basis_orbital_list.push_back(orbital);
+        basis_orbital_list.push_back(orbital); // Collect basis functions' orbitals + find their characteristic consts
         basis_func_constants.push_back(FindConsts(basis_data,atom, center, orbital));
     }
 
     // Question 2
 
+    // Find all normalization constants for the basis functions
     mat All_Normalization_Constants(3,N,fill::zeros);
-
     // Run a loop over all your basis functions
     for (int i = 0; i < N; i++){
         // get the normalization constants for the 3 primitives that make up each basis function
@@ -308,10 +309,11 @@ int main(int argc, char* argv[]) {
     for (int mu = 0; mu < N; mu++){
         for (int nu = 0; nu < N; nu++){
             // For this given pair of basis functions
-            // R_center,quantNums,exponents,contraCoeffs,normConsts
+            // R_center,quantNums,exponents,contraCoeffs,normConsts for each atom in the pair
             auto[R_mu,lmn_mu,a_mu,d_mu,N_mu] = basis_func_constants[mu];
             auto[R_nu,lmn_nu,a_nu,d_nu,N_nu] = basis_func_constants[nu];
 
+            // # of contracted gaussians
             int K = d_mu.size();
             int L = d_nu.size();
 
